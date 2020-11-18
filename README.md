@@ -15,7 +15,7 @@ Research repo for the generative modelling team.
 1) Initial review of time series generative modelling implementing some key baselines for our future work to be compared against.
 2) Explore viable alternative models.
 3) Explore the impact of these models on financial data.
-4) Explore splitting the data into predictiable sub parts, wavelet and gausian process are typical methods.
+4) Explore splitting the data into predictable sub parts, wavelet and gaussian process are typical methods.
 
 ## Applications:
 1) Data generator for improving supervised or reinforcement learning.
