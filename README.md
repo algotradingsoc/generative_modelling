@@ -12,7 +12,7 @@ Research repo for the generative modelling team.
 
 ---
 
-## ToDos
+## Research Proposal
 
-Initial review of time series generative modelling implementing some key baselines for our future work to be compared against.
+1) Initial review of time series generative modelling implementing some key baselines for our future work to be compared against.
 
