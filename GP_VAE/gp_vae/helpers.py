@@ -24,8 +24,9 @@ def make_cnn(output_size, hidden_sizes, kernel_size=3):
           hidden_sizes: list  of hidden layer sizes.
           kernel_size: kernel size for conv layer
     """
-    CNN_layer = [tf.keras.layers.Conv1D(hidden_sizes[0], kernel_size=kernel_size, padding="same", dtype=tf.float32)]
+    CNN_layers = [tf.keras.layers.Conv1D(hidden_sizes[0], kernel_size=kernel_size, padding="same", activation="relu", dtype=tf.float32)]
+    
     layers = [tf.keras.layers.Dense(h, activation=tf.nn.relu, dtype=tf.float32) for h in hidden_sizes[1:]]
     layers.append(tf.keras.layers.Dense(output_size, dtype=tf.float32))
-    layers = CNN_layer + layers
+    layers = CNN_layers + layers
     return tf.keras.Sequential(layers)

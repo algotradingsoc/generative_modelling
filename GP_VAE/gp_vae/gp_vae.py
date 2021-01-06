@@ -3,6 +3,7 @@ import numpy as np
 from tensorflow_probability import distributions as tfd
 from collections import defaultdict
 import time
+from sklearn import preprocessing
 
 from kernels import *
 from encoder import *
@@ -48,7 +49,8 @@ class GP_VAE(tf.keras.Model):
                  decoder_sizes=(64, 64),
                  beta=1.0, M=10, K=1, 
                  kernel="cauchy", sigma=1., 
-                 length_scale=1.0, kernel_scales=1, window_size=3, paper_version=False):
+                 length_scale=1.0, kernel_scales=1, 
+                 window_size=3, paper_version=False):
         """ Proposed GP-VAE model with Gaussian Process prior
             :param latent_dim: latent space dimensionality
             :param data_dim: original data dimensionality
@@ -65,6 +67,8 @@ class GP_VAE(tf.keras.Model):
             :param: paper_version: bool indicating whether to use the paper's verion of the decoder
                                         paper only uses a network for the mean and holds variance at 1 for all time series
         """
+        self.training = False # Initialise to training mode False
+
         self.latent_dim = latent_dim
         self.data_dim = data_dim
         self.time_length = time_length
@@ -79,6 +83,11 @@ class GP_VAE(tf.keras.Model):
         self.sigma = sigma
         self.length_scale = length_scale
         self.kernel_scales = kernel_scales
+
+        self.training = False
+        self.augment_at_train_time = False
+        # If using built in augmentation, % range of points to drop at train time
+        self.drop_pct_range = [0.3, 0.8] 
 
         # KL components
         self.pz_scale_inv = None
@@ -96,12 +105,12 @@ class GP_VAE(tf.keras.Model):
 
     # Fetch variance
     def get_variance(self, x):
-        return variance = self.decode(self.encode(x).mean()).variance()
+        return self.decode(self.encode(x).mean()).variance()
 
 
     # Draw sample from imputed posterior
     def sample(self, x, num_samples=1):
-        return tf.convert_to_tensor([self.decode(self.encode(x).mean()).sample() for _ in num_samples])
+        return tf.convert_to_tensor([self.decode(self.encode(x).mean()).sample() for _ in range(num_samples)])
 
 
     def decode(self, z):
@@ -114,23 +123,32 @@ class GP_VAE(tf.keras.Model):
     def encode(self, x):
         x = tf.identity(x)  # cast x as Tensor just in case
         return self.encoder(x)
-
-
-    def generate(self, noise=None, num_samples=1):
-        if noise is None:
-            noise = tf.random_normal(shape=(num_samples, self.latent_dim))
-        return self.decode(noise)
     
 
-    def compute_loss(self, x, m_mask=None, return_parts=False):
-        return self._compute_loss(x, m_mask=m_mask, return_parts=return_parts)
+    def compute_loss(self, x, m_mask=None, return_parts=False, initialising=False):
+        return self._compute_loss(x, m_mask=m_mask, return_parts=return_parts, initialising=initialising)
 
 
-    def _compute_loss(self, x, m_mask=None, return_parts=False):
+    def _compute_loss(self, x, m_mask=None, return_parts=False, initialising=False):
         """
             Do not provide m_mask for standard time series imputation tasks!!!
         """
         assert len(x.shape) == 3, "Input should have shape: [batch_size, time_length, data_dim]"
+
+        # If in training and augmenting at train time
+        if self.training and self.augment_at_train_time and not initialising and m_mask is None:
+            x_new = []
+            for xi in x:
+                mask = []
+                # Create a drop-mask by randomly sampling a a drop % for each row
+                for _ in range(xi.shape[1]):
+                    drop_pct = np.random.uniform(self.drop_pct_range[0], self.drop_pct_range[1])
+                    m = np.random.choice([0, 1], size=xi.shape[0], p=[drop_pct, 1-drop_pct]) # Generate random mask
+                    mask.append(m)
+                mask = np.array(mask).T
+                x_new.append(np.multiply(xi, mask))
+            x = np.array(x_new, dtype=np.float32)
+
         x = tf.identity(x)  # in case x is not a Tensor already...
         x = tf.tile(x, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
 
@@ -242,7 +260,7 @@ class GP_VAE(tf.keras.Model):
 
     def get_trainable_vars(self):
         self.compute_loss(tf.random.normal(shape=(1, self.time_length, self.data_dim), dtype=tf.float32),
-                          tf.zeros(shape=(1, self.time_length, self.data_dim), dtype=tf.float32))
+                          tf.zeros(shape=(1, self.time_length, self.data_dim), dtype=tf.float32), initialising=True)
         return self.trainable_variables
 
 
@@ -300,3 +318,19 @@ class GP_VAE(tf.keras.Model):
         x_max = tf.reduce_max(x, axis=axis, keepdims=True)
         return tf.math.log(tf.reduce_mean(tf.exp(x - x_max), axis=axis, keepdims=True) + epsilon) + x_max
 
+    
+    # Train and test modes from my experience with PyTorch, needed to indicate whether to augment at train time
+    def train(self, augment_at_train_time=False):
+        """
+            Place model in training mode.
+            Allow augment_at_train_time to be set to true if specified
+        """
+        self.training = True
+        self.augment_at_train_time = augment_at_train_time
+
+    
+    def eval(self):
+        """
+            Place model in evaluation mode -> disables augmentation
+        """
+        self.training = False

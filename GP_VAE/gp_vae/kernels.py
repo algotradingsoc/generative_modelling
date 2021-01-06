@@ -28,6 +28,14 @@ def matern_kernel(T, length_scale):
     xs_in = tf.expand_dims(xs, 0)
     xs_out = tf.expand_dims(xs, 1)
     distance_matrix = tf.math.abs(xs_in - xs_out)
-    distance_matrix_scaled = distance_matrix / tf.cast(tf.math.sqrt(length_scale))
-    kernel_matrix = tf.math.exp(-distance_matrix_scaled)
-    return kernel_matrix
+    distance_matrix_scaled = distance_matrix / tf.cast(tf.math.sqrt(length_scale), dtype=tf.float32)
+    K = tf.math.exp(-distance_matrix_scaled)
+    return K
+
+
+def linear_kernel(T, sigma=0.0):
+    xs = tf.range(T, dtype=tf.float32)
+    xs_in = tf.expand_dims(xs, 0)
+    xs_out = tf.expand_dims(xs, 1)
+    K = tf.multiply(xs_in, xs_out) + sigma**2
+    return K
