@@ -9,6 +9,7 @@ Checked some times series GAN models:
   I made a workable implementation of it, following https://github.com/stakahashy/fingan (particularly messy implementation)
 3. QuantGAN: https://arxiv.org/pdf/1907.06673v2.pdf
 
+Wrote recurrent autoencoder into python script and added a use example script.
+
 To do:
-1. Write recurrent autoencoder into python script.
-2. Implementation of HPCA: https://gmarti.gitlab.io/qfin/2020/07/05/hierarchical-pca-avellaneda-paper.html
+1. Implementation of HPCA: https://gmarti.gitlab.io/qfin/2020/07/05/hierarchical-pca-avellaneda-paper.html
