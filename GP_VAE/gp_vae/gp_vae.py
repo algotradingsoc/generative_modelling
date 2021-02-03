@@ -96,10 +96,20 @@ class GP_VAE(tf.keras.Model):
 
 
     def __call__(self, x, with_var=False):
+        scalers = []
+        for i in range(len(x)):
+            scaler = preprocessing.StandardScaler()
+            x[i] = scaler.fit_transform(x[i])
+            scalers.append(scaler)
+        
         mean = self.decode(self.encode(x).mean()).mean()
         if with_var:
             variance = self.decode(self.encode(x).mean()).variance()
             return mean, variance
+
+        for i, scaler, _ in enumerate(scalers, mean):
+            mean[i] = scaler.inverse_transform(mean[i])
+
         return mean
 
 
@@ -148,6 +158,12 @@ class GP_VAE(tf.keras.Model):
                 mask = np.array(mask).T
                 x_new.append(np.multiply(xi, mask))
             x = np.array(x_new, dtype=np.float32)
+
+            scalers = []
+            for i in range(len(x)):
+                scaler = preprocessing.StandardScaler()
+                x[i] = scaler.fit_transform(x[i])
+                scalers.append(scaler)
 
         x = tf.identity(x)  # in case x is not a Tensor already...
         x = tf.tile(x, [self.M * self.K, 1, 1])  # shape=(M*K*BS, TL, D)
