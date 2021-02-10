@@ -5,9 +5,9 @@ from collections import defaultdict
 import time
 from sklearn import preprocessing
 
-from kernels import *
-from encoder import *
-from decoder import *
+from genmodels.gpvae.kernels import *
+from genmodels.gpvae.encoder import *
+from genmodels.gpvae.decoder import *
 
 """
     GP-VAE model
@@ -64,7 +64,7 @@ class GP_VAE(tf.keras.Model):
             :param sigma: scale parameter for a kernel function
             :param length_scale: length scale parameter for a kernel function
             :param kernel_scales: number of different length scales over latent space dimensions
-            :param: paper_version: bool indicating whether to use the paper's verion of the decoder
+            :param paper_version: bool indicating whether to use the paper's verion of the decoder
                                         paper only uses a network for the mean and holds variance at 1 for all time series
         """
         self.training = False # Initialise to training mode False

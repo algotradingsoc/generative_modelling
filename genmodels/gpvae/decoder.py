@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow_probability import distributions as tfd
 
-from helpers import *
+from genmodels.gpvae.helpers import *
 
 """
     Decoder with (Multivariate) Gaussian prior

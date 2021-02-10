@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.style.use("ggplot")
 import gc
 gc.collect()
-from RAE_Model_Construction import RAE_Model
+from genmodels.rae.rae_model.constuction import RAE_Model
 
 #!pip install yfinance
 import yfinance as yf
