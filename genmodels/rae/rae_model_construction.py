@@ -25,9 +25,9 @@ class LSTM_Sequential_State(tf.keras.Model):
 
     def expand(x):
         return K.expand_dims(x, 1)
-    
+
     self.expand_layer = tf.keras.layers.Lambda(expand, output_shape=lambda s: (s[0], 1, s[1]))
-  
+
   @staticmethod
   def get_indexer(t):
         return tf.keras.layers.Lambda(lambda x, t: x[:, t, :], arguments={'t':t}, output_shape=lambda s: (s[0], s[2]))
@@ -56,7 +56,7 @@ class LSTM_Sequential_State(tf.keras.Model):
     return output
 
 class RAE_Model(tf.keras.Model):
-  def __init__(self, time_series_len, input_dim, LSTM_units, compression_units):
+  def __init__(self, time_series_len, input_dim, LSTM_units, compression_units, regularization_coefficient):
     '''
     time_series_len: the length of time series, which is the first dimension of the dataset
     input_dim: the number of time series, which is the second dimension of the dataset
@@ -68,17 +68,23 @@ class RAE_Model(tf.keras.Model):
     self.input_dim = input_dim
     self.LSTM_units = LSTM_units
     self.compression_units = compression_units
+    self.regularizer = tf.keras.regularizers.L1(regularization_coefficient)
 
     self.lss = LSTM_Sequential_State(time_series_len, input_dim, LSTM_units)
-    self.d = tf.keras.layers.Dense(compression_units)
+    self.d = tf.keras.layers.Dense(compression_units, kernel_regularizer=self.regularizer, bias_regularizer=self.regularizer)
+    self.FF1 = tf.keras.layers.TimeDistributed(self.d)
 
     self.lss_scale = LSTM_Sequential_State(time_series_len, compression_units, LSTM_units)
-    self.scale_up = tf.keras.layers.Dense(input_dim)
-
+    self.scale_up = tf.keras.layers.Dense(input_dim, kernel_regularizer=self.regularizer, bias_regularizer=self.regularizer)
+    self.FF2 = tf.keras.layers.TimeDistributed(self.scale_up)
 
   def call(self, inputs):
-    x = self.lss(inputs) # using default, ouputs: (1, 90, 10)
-    x = tf.keras.layers.TimeDistributed(self.d)(x) # using default, ouputs: (1, 90, 1)
-    x = self.lss_scale(x)
-    x = tf.keras.layers.TimeDistributed(self.scale_up)(x)
+    x = self.lss(inputs) # using default, ouputs: (1, 90, 10) 10: 2*5, where 5 is LSTM units
+    x = self.FF1(x) # using default, ouputs: (1, 90, 1) -> latent time series (univariate)
+    x = self.lss_scale(x) # check the dimension of x here
+    x = self.FF2(x)
     return x
+    # freeze until one of the layers, and use the prior layers together with a feed-forward for forecasting future time series
+
+  def get_encoder(self):
+    return lambda inputs : self.FF1(self.lss(inputs))
