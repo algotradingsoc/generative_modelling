@@ -84,7 +84,42 @@ class RAE_Model(tf.keras.Model):
     x = self.lss_scale(x) # check the dimension of x here
     x = self.FF2(x)
     return x
-    # freeze until one of the layers, and use the prior layers together with a feed-forward for forecasting future time series
+
+  def get_encoder(self):
+    return lambda inputs : self.FF1(self.lss(inputs))
+
+class RAE_Portfolio(tf.keras.Model):
+  def __init__(self, time_series_len, input_dim, LSTM_units, compression_units, regularization_coefficient):
+    '''
+    time_series_len: the length of time series, which is the second dimension of the dataset
+    input_dim: the number of time series, which is the third dimension of the dataset
+    LSTM_units: the number of units used in LSTM layer
+    compression_units: the number of units in the Dense layer which acts on each output at each time point
+
+    output: a long-only no-leverage portfolio for input_dim stocks
+    '''
+    super(RAE_Portfolio, self).__init__()
+    self.time_series_len = time_series_len
+    self.input_dim = input_dim
+    self.LSTM_units = LSTM_units
+    self.compression_units = compression_units
+    self.regularizer = tf.keras.regularizers.L1(regularization_coefficient)
+
+    self.lss = LSTM_Sequential_State(time_series_len, input_dim, LSTM_units)
+    self.d = tf.keras.layers.Dense(compression_units, kernel_regularizer=self.regularizer, bias_regularizer=self.regularizer)
+    self.FF1 = tf.keras.layers.TimeDistributed(self.d)
+
+    self.lss_scale = LSTM_Sequential_State(time_series_len, compression_units, LSTM_units)
+    self.scale_up = tf.keras.layers.Dense(input_dim, kernel_regularizer=self.regularizer, bias_regularizer=self.regularizer, activation="softmax")
+    # softmax as activation guarantees long-only and no-leverage
+    self.FF2 = tf.keras.layers.TimeDistributed(self.scale_up)
+
+  def call(self, inputs):
+    x = self.lss(inputs) # using default, ouputs: (1, 90, 10) 10: 2*5, where 5 is LSTM units
+    x = self.FF1(x) # using default, ouputs: (1, 90, 1) -> latent time series (univariate)
+    x = self.lss_scale(x) # check the dimension of x here
+    x = self.FF2(x)
+    return x
 
   def get_encoder(self):
     return lambda inputs : self.FF1(self.lss(inputs))
